@@ -1,0 +1,60 @@
+version: 2.1
+
+orbs:
+  shellcheck: circleci/shellcheck@2.2.2
+  cloudrun: circleci/gcp-cloud-run@1.0.2
+
+workflows:
+  test_and_deploy:
+    jobs:
+      - shellcheck/check
+      - validate:
+          requires:
+            - shellcheck/check
+      - deploy:
+          requires:
+            - validate
+          filters:
+            branches:
+              only: main
+        
+jobs:
+  validate:
+    docker: 
+      - image: python:3.7-slim-buster
+
+    working_directory: ~/app
+
+    steps:
+      - checkout
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: pip install pylint flake8
+      - run: |
+          apt-get update
+          apt-get install libgomp1
+      - run:
+          name: Lint Code
+          command: |
+            flake8 --ignore=E202,E201,E225 app.py
+            pylint --disable=C0103 app.py
+      - run:
+          name: Run Unit Tests
+          command: python -m unittest --verbose --failfast
+  deploy:
+    docker:
+      - image: 'cimg/base:stable'
+      
+    working_directory: ~/app
+
+    steps:
+      - checkout
+      - cloudrun/init
+      - cloudrun/build:
+          tag: 'gcr.io/${GOOGLE_PROJECT_ID}/${APPNAME}'
+      - cloudrun/deploy:
+          image: 'gcr.io/${GOOGLE_PROJECT_ID}/${APPNAME}'
+          platform: managed
+          service-name: $APPNAME
+          region: $GOOGLE_COMPUTE_ZONE
+          unauthenticated: true
