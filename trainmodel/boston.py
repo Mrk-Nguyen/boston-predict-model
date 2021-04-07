@@ -26,7 +26,7 @@ import seaborn as sns
 
 from collections.abc import Iterable
 
-get_ipython().run_line_magic('matplotlib', 'inline')
+#get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 # %%
