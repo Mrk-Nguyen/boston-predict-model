@@ -7,7 +7,16 @@ import json
 import pandas as pd
 from flask import Flask, request, jsonify
 
-# Import model code here
+try:
+    with open('model/model.pkl', 'rb') as f:
+        MODEL = pickle.load(f)
+        MODEL_LOADED = True
+except OSError:
+    logging.exception("Cannot open model")
+    MODEL_LOADED = False
+
+with open('model/feature_sequence.txt', 'r') as f:
+    COLUMNS = json.loads(f.readline())
 
 PORT = int(os.environ.get('PORT', 8080))
 
@@ -40,6 +49,16 @@ def score():
     }]
 
     '''
+    content = request.json
+    try:
+        data_df = pd.DataFrame(content)[COLUMNS]
+    except SystemError:
+        logging.exception("Invalid data submitted")
+        return jsonify(status='error, invalid data submitted', score=-1)
+
+    if MODEL_LOADED:
+        predicted_score = MODEL.predict(data_df)
+        return jsonify(status='ok', scores=list(predicted_score))
 
     return jsonify(status='error, model failed to load', score=-1)
 
